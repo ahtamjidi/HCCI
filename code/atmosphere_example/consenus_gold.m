@@ -23,6 +23,7 @@ function consensus_our_method()
 global opt_dist
 
 % initializing consensus variables
+
 size_comp = networkComponents(opt_dist.dataG.Graph.p);
 
 for i_agent = 1 : opt_dist.nAgents

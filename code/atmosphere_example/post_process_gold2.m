@@ -59,7 +59,7 @@ else
 end
 P_cen = inv(opt_dist.result.est{1}.Y_cen);
 x_cen = P_cen*(opt_dist.result.est{1}.y_cen);
-x_gt =opt_dist.sim.gt.x_bar;
+x_gt = opt_dist.sim.gt.x_bar;
 
 for i_agent=1:opt_dist.nAgents
     P_gold{i_agent} =  opt_dist.result.est_gold{i_agent}.P_bar ;
@@ -121,17 +121,19 @@ for j_agent = 1 : opt_dist.nAgents
             error_struct.e_BC_dist_gold(i_consensus - start_step +1,j_agent) = BC_distance(x_gold{j_agent},P_gold{j_agent},x,P);
             error_struct.e_BC_dist_cent(i_consensus - start_step +1,j_agent) = BC_distance(x_cen,P_cen,x,P);
             error_struct.e_BC_dist_gold_vs_cent(i_consensus - start_step +1,j_agent) = BC_distance(x_cen,P_cen,x_gold{j_agent},P_gold{j_agent});
-
+            
+            %% NEES @Naveed
+            %nees_array(i_consensus - start_step +1) = (x - x_gt)'*inv(P)*(x - x_gt);
         end
 
     end
-
+%%end
 
     error_mean.e_cen = mean( error_struct.e_cen(:));
     error_mean.con_perc_cen  = mean( error_struct.con_perc_cen(:) );
 
     %% Error Gold vs. Ground Truth
-    error_mean.e_gold = mean(  error_struct.e_gold(:) );
+    error_mean.e_gold = mean(  error_struct.e_gold(:) ); %error_mean.e_gold(j_agent) = ??
 
     %% Error Gold vs. centralized
     error_mean.e_gold_vs_cent = mean(  error_struct.e_gold_vs_cent(:) );
@@ -170,8 +172,9 @@ for j_agent = 1 : opt_dist.nAgents
     error_mean.e_BC_dist_gold = mean( error_struct.e_BC_dist_gold(:) );
     error_mean.e_BC_dist_cent = mean( error_struct.e_BC_dist_cent(:) );
     error_mean.e_BC_dist_gold_vs_cent = mean( error_struct.e_BC_dist_gold_vs_cent(:) );
-
-
+    
+    %%NEES @Naveed
+    %nees_mean(j_agent) = mean(nees_array(:));
 end
 
 end
