@@ -51,6 +51,7 @@ for j_field = 1:numel(names)
 end
 
 mean_
+%{
 close all
 figure
 plot(squeeze(mean_.e_BC_dist_gold_vs_cent(1,:,1)),'LineWidth',3); hold on;
@@ -61,4 +62,5 @@ title('Average performance comparison vs. Full Infomration Estimator')
 xlabel('Probability of Failure')
 ylabel('D_B (Bhattacharyya distance)')
 grid on;
+%}
 end

@@ -10,12 +10,12 @@ dbstop if error
 
 
 % This is the size of the reduced atmospheric system
-reduced_dimention_size = 80;
-n_receptors_array = [10];%[10 20 30 40 50 60 80 100];%[10 15 20 25 30 40 50 60 70 80 90 100]; %%number of receptors or sensors array %min of 11 agents for full observability.
-converg_steps_array = [5]; %[1 5 10 15 20 30 40 50 60 80 100 120 140 160 180 200];
+reduced_dimention_size = 10;
+n_receptors_array = [15];%[10 20 30 40 50 60 80 100];%[10 15 20 25 30 40 50 60 70 80 90 100]; %%number of receptors or sensors array %min of 11 agents for full observability.
+converg_steps_array = [10]; %[1 5 10 15 20 30 40 50 60 80 100 120 140 160 180 200];
 error_index = 1; %initialising index for error_ variable.
-nees_runs = 1;  % =1 if NEES is not needed. 
-range_step = 2; % number of time steps
+nees_runs = 10;  % =1 if NEES is not needed. 
+range_step = 3; % number of time steps
 fiedler_array = zeros(range_step,size(n_receptors_array,2));
 
 for n_recept = n_receptors_array
@@ -28,7 +28,9 @@ for n_recept = n_receptors_array
         disp('Convergence steps:'); disp(converg_steps);
         rng(0) %for choosing agents repeatably randomly
 
-        [A,x0,B,C] = create_sys_atmosphere_gold(reduced_dimention_size,n_recept);
+        [A,x0,B,C] = create_sys_atmosphere_gold(reduced_dimention_size,n_recept); 
+        
+        %[A,x0,B,C] = create_sys_gold(reduced_dimention_size,n_recept,10); %# of states, # output, # input %TODO change a to A, b to B, x3 to x0
         disp('controllability:'); disp(rank(ctrb(A,B)));
         disp('observability:'); disp(rank(obsv(A,C)));
         % Fix the random number generator seed to make the runs repeatable
@@ -44,7 +46,7 @@ for n_recept = n_receptors_array
             flag_converged = 0;
             global fail_prob reg_deg
 
-            % range_prob = [ 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1];
+            % range_prob = [ 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 
             % range_prob = [ 0.4 0.6 0.8  1];
             % range_prob = [ 0 0.2  0.4 0.6 0.8 1];
 
@@ -96,7 +98,7 @@ for n_recept = n_receptors_array
                             
                             sim_system_gold();
                             %opt_dist.dataG.Graph.Adj
-                            fiedler_array(i_step,error_index) = fiedler_value(opt_dist.dataG.Graph.Adj);
+                            fiedler_array(i_step,error_index) = calc_fiedler_value(opt_dist.dataG.Graph.Adj);
                             pred();
                             consenus_gold();
                             calc_super_gold_update();

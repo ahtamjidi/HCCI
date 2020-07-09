@@ -57,6 +57,7 @@ end
 
 
 close all
+%{
  figure
  plot(squeeze(mean_.e_BC_dist_gold_vs_cent(1,:,1)),'LineWidth',3); hold on;
  plot(squeeze(mean_.e_BC_dist_cent(1,:,1)),'LineWidth',3); hold on;
@@ -67,4 +68,5 @@ xlabel('Probability of Failure')
 ylabel('D_B (Bhattacharyya distance)')
  grid on;
  close
+%}
 end

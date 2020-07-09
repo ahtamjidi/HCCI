@@ -9,7 +9,7 @@ opt_dist.result.pred.Y_cen = inv(opt_dist.result.pred.P_cen); %information matri
 if opt_dist.FLAGS.debug
     disp(['RCOND P_cen prediction = ',num2str(rcond(opt_dist.result.pred.P_cen))])
     if rcond(opt_dist.result.pred.P_cen)<=0.0001
-        figure(opt_dist.figures.fig_cov_debug)
+        %figure(opt_dist.figures.fig_cov_debug)
     end
 end
 
@@ -32,7 +32,7 @@ for i_agent = 1 : opt_dist.nAgents
     end
 end
 x_pred_cen = opt_dist.result.pred.x_cen;
-[h_cen,H_cen,idx_vis_cen]=h_calc_ver2(x_pred_cen); %??
+[h_cen,H_cen,idx_vis_cen]= h_calc_ver2(x_pred_cen); %??
 opt_dist.result.obs.h_cen = h_cen;
 opt_dist.result.obs.H_cen = H_cen;
 opt_dist.result.obs.id_vis_cen = idx_vis_cen;

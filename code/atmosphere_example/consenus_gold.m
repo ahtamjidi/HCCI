@@ -72,7 +72,7 @@ for i_consensus = 2:opt_dist.nSteps
         
         log_message('our method CI')
         weights_ci = [];inf_mat = [];inf_vect=[];
-        [weights_ci,inf_mat,inf_vect] = calc_ci_weights_ver3(I_local,i_local,'det'); %changed from 'det'
+        [weights_ci,inf_mat,inf_vect] = calc_ci_weights_ver3(I_local,i_local,'tr'); %changed from 'det'
         
         opt_dist.result.consenus{j_agent}.Y_prior{i_consensus} = inf_mat;
         opt_dist.result.consenus{j_agent}.y_prior{i_consensus} = inf_vect;

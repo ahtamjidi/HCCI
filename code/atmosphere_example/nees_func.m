@@ -21,43 +21,9 @@ function nees_mean = calc_error_stat(method)
 %Compute Normalised error
     global opt_dist
 
-    max_it = opt_dist.nSteps;
-    if max_it < 3
-        start_step = 2;%2 for Ren;
-    else
-        start_step = max_it - 3;
-    end
-
     x_gt = opt_dist.sim.gt.x_bar;
 
     for j_agent = 1 : opt_dist.nAgents
-        j_agent
-        for i_consensus=start_step : max_it
-            i_consensus
-            if opt_dist.FLAGS.our_method
-                %% Getting the Estimate of Agent j_agent
-                switch method
-                    case 'ICI'
-                        P = inv(opt_dist.result.est{i_consensus}.Y_bar_CI(:,:,j_agent));
-                        x = P*(opt_dist.result.est{i_consensus}.y_bar_CI(:,j_agent));
-                        %disp('ICI');
-                        nees_array(i_consensus - start_step +1) = (x - x_gt)'*inv(P)*(x - x_gt);
-                    case 'Hybrid'
-                        P = inv(opt_dist.result.est{i_consensus}.Y_bar(:,:,j_agent));
-                        x = P*(opt_dist.result.est{i_consensus}.y_bar(:,j_agent));
-                        %disp('Hybrid');
-                        nees_array(i_consensus - start_step +1) = (x - x_gt)'*inv(P)*(x - x_gt);
-                end
-
-                %% Error vs. Ground Truth
-                %disp('state_error:');
-                %size(x - x_gt)
-                %disp('size of P:');
-                %size(P)
-                
-
-            end
-        end
         
         switch method
             case 'Gold'
@@ -69,20 +35,26 @@ function nees_mean = calc_error_stat(method)
         
             case 'ICI'
                 %disp('ICI');
-                nees_mean(j_agent) = mean(nees_array(:));
+                P = inv(opt_dist.result.est{end}.Y_bar_CI(:,:,j_agent));
+                x = P*(opt_dist.result.est{end}.y_bar_CI(:,j_agent));
+                nees_mean(j_agent) = (x - x_gt)'*inv(P)*(x - x_gt);
             
             case 'Hybrid'
                 %disp('Hybrid');
-                nees_mean(j_agent) = mean(nees_array(:));
-            
+                P = inv(opt_dist.result.est{end}.Y_bar(:,:,j_agent));
+                x = P*(opt_dist.result.est{end}.y_bar(:,j_agent));   
+                nees_mean(j_agent) = (x - x_gt)'*inv(P)*(x - x_gt);
+                
             case 'Cent'
-                %disp('Cent');
+                disp('Cent');
         
                 P_cen = inv(opt_dist.result.est{1}.Y_cen);
                 x_cen = P_cen*(opt_dist.result.est{1}.y_cen);
-                
-                nees_mean(j_agent) = (x_cen - x_gt)'*inv(P_cen)*(x_cen - x_gt);
-    
+                disp('Eig(P)'); 
+                eig(P_cen)
+                disp('error:');
+                x_cen - x_gt
+                nees_mean(j_agent) = (x_cen - x_gt)'*inv(P_cen)*(x_cen - x_gt)
                 
         end
 

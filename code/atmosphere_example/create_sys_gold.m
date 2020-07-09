@@ -22,3 +22,5 @@ source.Q = ones(1,m);
 opt_dist.source = source;
 
 
+recept.n = p;
+opt_dist.recept = recept;

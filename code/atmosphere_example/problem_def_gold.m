@@ -29,12 +29,12 @@ opt_dist.n_degree_graph = opt_dist.nAgents;
 opt_dist.obs.rel_perc = 0.05;
 
 opt_dist.obs.R = r_var;
-opt_dist.figures.fig_cov_debug = figure;
+%opt_dist.figures.fig_cov_debug = figure;
 opt_dist.FLAGS.debug = 0;
 opt_dist.FLAGS.debug_consensus = 0;
 opt_dist.iter_interest = [1];
-opt_dist.FLAGS.obs_noise_type =  'absolute'; % ('absolute' | 'relative');
-opt_dist.dimObs =1;%opt_dist.dimAgents;
+opt_dist.FLAGS.obs_noise_type = 'absolute'; % ('absolute' | 'relative');
+opt_dist.dimObs = 1;%opt_dist.dimAgents;
 opt_dist.nIterations = 60;
 opt_dist.nSteps = converg_steps + 1; %consensus steps (change to 2 for Ren implementation) +1 for initialisation step
 opt_dist.scenario = '2';

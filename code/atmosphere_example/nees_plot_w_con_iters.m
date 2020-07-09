@@ -1,9 +1,10 @@
 %%NEES Plot with consensus iterations
 % Author: Naveed (mohdnaveed96@gmail.com)
 clear all;
-load('/home/naveed/Documents/DSE_data/80_states_nees_test_30_agents_all4.mat');
+load('/home/naveed/Documents/DSE_data/10_states_nees_test_15_agents_all4.mat');
 t_steps = size(nees_results,3);
-n_agents = 30;
+dim_state = 10;
+n_agents = 15;
 
 %Hyb_data = zeros(t_steps,n_agents);
 %ICI_data = zeros(t_steps,n_agents);
@@ -25,8 +26,8 @@ Hyb_data = zeros(c_steps,t_steps,nees_runs);
 ICI_data = zeros(c_steps,t_steps,nees_runs);
 Gold_data = zeros(c_steps,t_steps,nees_runs);
 cen_data = zeros(c_steps,t_steps,nees_runs);
-mu = 80;
-sigma = sqrt(2*80);
+mu = 0;%TODO change for Gaussian
+sigma = sqrt(1); %TODO change for Gaussian
 
 for j = 1:c_steps
     for i = 1:t_steps
@@ -42,15 +43,18 @@ end
 
 for j = 1:c_steps
     for i = 1:t_steps
-        Hyb_mean(j,i) = (1/sqrt(nees_runs)).*sum(Hyb_data(j,i,:));
-    
-        ICI_mean(j,i) = (1/sqrt(nees_runs)).*sum(ICI_data(j,i,:));
-    
-        Gold_mean(j,i) = (1/sqrt(nees_runs)).*sum(Gold_data(j,i,:));
-    
-        cen_mean(j,i) = (1/sqrt(nees_runs)).*sum(cen_data(j,i,:));
+        %Hyb_mean(j,i) = (1/sqrt(nees_runs)).*sum(Hyb_data(j,i,:));
+        Hyb_mean(j,i) = mean(Hyb_data(j,i,:));
+        %ICI_mean(j,i) = (1/sqrt(nees_runs)).*sum(ICI_data(j,i,:));
+        ICI_mean(j,i) = mean(ICI_data(j,i,:));
+        %Gold_mean(j,i) = (1/sqrt(nees_runs)).*sum(Gold_data(j,i,:));
+        Gold_mean(j,i) = mean(Gold_data(j,i,:));
+        %cen_mean(j,i) = (1/sqrt(nees_runs)).*sum(cen_data(j,i,:));
+        cen_mean(j,i) = mean(cen_data(j,i,:));
     end
 end
+nees_lb = 0.50*((sqrt(2*dim_state*nees_runs - 1) - 1.96)^2)/nees_runs;
+nees_ub = 0.50*((sqrt(2*dim_state*nees_runs - 1) + 1.96)^2)/nees_runs;
 %%
 fig = figure(1);
 t = 1:t_steps;
@@ -68,11 +72,11 @@ plot(t,ICI_mean(c_steps,:),'Marker','*','LineWidth',2,'color','b','DisplayName',
 plot(t,cen_mean(c_steps,:),':','Marker','*','LineWidth',3,'color','m','DisplayName','Centralised');
 %plot(t,80*.95653*ones(t_steps,1),'LineWidth',2,'color','k');
 %plot(t,80*1.0441*ones(t_steps,1),'LineWidth',2,'color','r');
-plot(t,-2.*ones(t_steps,1),'LineWidth',2,'color','k','DisplayName','Lower Bound');
-plot(t,2.*ones(t_steps,1),'LineWidth',2,'color','r','DisplayName','Upper Bound');
+plot(t,nees_lb.*ones(t_steps,1),'LineWidth',2,'color','k','DisplayName','Lower Bound');
+plot(t,nees_ub.*ones(t_steps,1),'LineWidth',2,'color','r','DisplayName','Upper Bound');
 %hlegend = legend('FHS','ICI','Hybrid','Centralised','Lower Bound','Upper Bound');
 %set(hlegend,'Fontsize',14)
-legend()
+legend('Location','SouthEast')
 xlabel('Time(s)','FontSize', 12)
 ylabel('Average NEES','FontSize', 12)
 %ylim([-0.1,1.1])
@@ -82,7 +86,7 @@ screenposition = get(fig,'Position');
 set(fig,...
     'PaperPosition',[0 0 screenposition(3:4)],...
     'PaperSize',[screenposition(3:4)]);
-print -dpdf -painters '/home/naveed/Dropbox/Research/Data/T_RO_DSE/nees_80states_12agents_all4_con_iters_normalised.pdf' ;
+%print -dpdf -painters '/home/naveed/Dropbox/Research/Data/T_RO_DSE/nees_40states_40agents_w_con_iters_rand_mod.pdf' ;
 %{
 fig = figure(2);
 t = 1:t_steps;

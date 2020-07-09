@@ -22,6 +22,7 @@ for idx_agent=1:opt_dist.nAgents
         z_CI = [];
         id_vis_CI = [];
     end
+    
     for i=idx_obs_agent
         z_temp = opt_dist.C(i,:) * opt_dist.sim.gt.x_bar;
         %         if norm(z_temp) <=opt_dist.obs.Range
@@ -32,12 +33,14 @@ for idx_agent=1:opt_dist.nAgents
                     delta_noise = randn(opt_dist.dimObs,1).*sqrt(opt_dist.obs.R);
                 case 'relative'
                     delta_noise = randn(opt_dist.dimObs,1).*sqrt(min(10^-5,opt_dist.obs.rel_perc.*z_temp));
+                    
+                    
             end
             z_noise = z_temp + delta_noise;
             
             if opt_dist.FLAGS.debug
                 percent_of_noise = 100*(delta_noise./z_temp);
-                disp(['Percentage of o Noise = ', num2str(mean(percent_of_noise))])
+                disp(['Percentage of o Noise = ', num2str(mean(percent_of_noise))]);
                 disp('---------------------')
                 %                 disp(percent_of_noise)
                 %                 disp('---------------------')

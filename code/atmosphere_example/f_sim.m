@@ -4,6 +4,7 @@ if flag_noise
     
     delta_noise =  randn(size(x_current))*sqrt(opt_dist.motion.Q);
     x_next = opt_dist.A*x_current + opt_dist.B*( opt_dist.source.Q') + delta_noise;
+    
     if opt_dist.FLAGS.debug 
         percent_of_noise = 100*(delta_noise./x_next);
         disp(['Percentage of input Noise = ', num2str(mean(percent_of_noise))])
