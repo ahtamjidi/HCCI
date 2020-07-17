@@ -121,12 +121,12 @@ while step <= META.TIME.numSteps
     end
     % /////////////////////////////////////////////////////////////////////
     
-    % 6. //// COMPUTE AGENT CYCLES (UPDATE GLOBAL REPRESENTATION (@t=k) ///
+    % 6. ////////// COMPUTE INFORMATION FILTER ESTIMATION (@t=k) //////////
     if META.threadPool ~= 0
         objectSnapshot = objectIndex;                                      % Make a temporary record of the object set
         parfor (ID1 = 1:META.totalObjects)
             % MOVE THROUGH OBJECT INDEX AND UPDATE EACH AGENT
-            [objectIndex{ID1},objectEVENTS] = UpdateObjects(META,objectSnapshot,objectIndex{ID1});            
+            [detection{ID1},objectIndex{ID1},objectEVENTS] = UpdateInformationFilter(META,objectSnapshot,objectIndex{ID1});
             % LOG THE OBJECT EVENTS
             if ~isempty(objectEVENTS)
                 EVENTS = vertcat(EVENTS,objectEVENTS);
@@ -135,7 +135,7 @@ while step <= META.TIME.numSteps
     else
         for ID1 = 1:META.totalObjects
             % MOVE THROUGH OBJECT INDEX AND UPDATE EACH AGENT
-            [objectIndex{ID1},objectEVENTS] = UpdateObjects(META,objectIndex,objectIndex{ID1}); % Update objectIndex snapshot with new META data
+            [detection{ID1},objectIndex{ID1},objectEVENTS] = UpdateInformationFilter(META,objectIndex,objectIndex{ID1}); % Update objectIndex snapshot with new META data
             % LOG THE OBJECT EVENTS
             if ~isempty(objectEVENTS)                                      % If objectEVENTS occur in this timestep
                 EVENTS = vertcat(EVENTS,objectEVENTS);                     % Append to global EVENTS
@@ -151,7 +151,31 @@ while step <= META.TIME.numSteps
     consensus(agent_groups);
     % /////////////////////////////////////////////////////////////////////
     
-    % 8. /// THE 'OBJECT.VIRTUAL' PROPERTIES IS NOW UPDATED FOR (t=k+1) ///
+    % 8. //////// UPDATE AGENT ESTIMATE FROM CONSENSUS DATA (@t=k) ////////
+    % update_agents_from_consensus(META, detection, objectIndex)
+    if META.threadPool ~= 0
+        objectSnapshot = objectIndex;                                      % Make a temporary record of the object set
+        parfor (ID1 = 1:META.totalObjects)
+            % MOVE THROUGH OBJECT INDEX AND UPDATE EACH AGENT
+            [objectIndex{ID1},objectEVENTS] = UpdateObject(META,objectSnapshot,objectIndex{ID1});            
+            % LOG THE OBJECT EVENTS
+            if ~isempty(objectEVENTS)
+                EVENTS = vertcat(EVENTS,objectEVENTS);
+            end
+        end
+    else
+        for ID1 = 1:META.totalObjects
+            % MOVE THROUGH OBJECT INDEX AND UPDATE EACH AGENT
+            [objectIndex{ID1},objectEVENTS] = UpdateObject(META,objectIndex,objectIndex{ID1}); % Update objectIndex snapshot with new META data
+            % LOG THE OBJECT EVENTS
+            if ~isempty(objectEVENTS)                                      % If objectEVENTS occur in this timestep
+                EVENTS = vertcat(EVENTS,objectEVENTS);                     % Append to global EVENTS
+            end
+        end
+    end
+    % /////////////////////////////////////////////////////////////////////
+    
+    % 9. /// THE 'OBJECT.VIRTUAL' PROPERTIES IS NOW UPDATED FOR (t=k+1) ///
     step = step + 1;
 end
 % CREATE TERMINAL VALUES, FOR CLARITY
@@ -436,10 +460,10 @@ for entityA = 1:SIM.totalObjects
         end     
     end
 end
-       
+
 end
 % UPDATE THE OBJECT PROPERTIES
-function [referenceObject,objectEVENTS] = UpdateObjects(SIM,objectIndex,referenceObject)
+function [observationPacket, referenceObject,objectEVENTS] = UpdateInformationFilter(SIM,objectIndex,referenceObject)
 % This function updates a referenceObject class against the rest of the
 % objectIndex, independantly of the SIM.OBJECTS META data.
 % INPUTS:
@@ -475,12 +499,12 @@ if SIM.verbosity >= 2
     fprintf('[UPDATE]\tCycling ID:%d\t name: %s\n',SIMfirstObject.objectID,referenceObject.name);
 end
 
+observationPacket = [];
 % SWITCH BEHAVIOUR BASED ON OBJECT TYPE
 switch SIMfirstObject.type
     case OMAS_objectType.agent
         % AGENT - SIMULATION/ENVIROMENTAL FEEDBACK REQUIRED %%%%%%%%%%%%%%
         % Container for agent detection packet
-        observationPacket = [];             
         
         % //// PARSE THE ENVIRONMENTAL OBJECTS OBSERVABLE TO THE AGENT ////
         for ID2 = 1:SIM.totalObjects
@@ -509,26 +533,31 @@ switch SIMfirstObject.type
             relativePosition = SIMfirstObject.relativePositions(ID2,:)';
             relativeVelocity = SIMsecondObject.globalState(4:6) - SIMfirstObject.globalState(4:6);
             % ROTATE THE GLOBAL STATE OF THE OBJECT INTO THE AGENT FRAME
-            observedPosition = SIMfirstObject.R*relativePosition;            % Rotate the from the global into the body frame of the simReference
-            observedVelocity = SIMfirstObject.R*relativeVelocity;
+            %observedPosition = SIMfirstObject.R*relativePosition;         % Rotate the from the global into the body frame of the simReference
+            %observedVelocity = SIMfirstObject.R*relativeVelocity;
+            observedPosition = relativePosition(1:2);                           % Rotate the from the global into the body frame of the simReference
+            observedVelocity = relativeVelocity;
             % SPHERICAL REPRESENTATION
-            observedRange     = norm(observedPosition);
+            observedRange    = norm(observedPosition);
+            
+            noise_sigma = 0.1;
+            noise = noise_sigma*eye(2);
+            observedz = observedPosition + mvnrnd(zeros(1, 2), noise)';
+            
             if SIMsecondObject.type == 1
                 % Observed object is an agent, grab the motion model and Q
-                observedz         = norm(observedPosition);
                 observedF         = eye(2);
                 observedQ         = secondObject.Q;
             else
                 % Observed object is an immobile object, motion model and Q = 0
-                observedz         = norm(observedPosition);
                 observedF         = zeros(2);
                 observedQ         = 0;
             end
-            observedElevation = asin(observedPosition(3)/observedRange);
-            observedHeading   = atan2(observedPosition(2),observedPosition(1));
+            %observedElevation = asin(observedPosition(3)/observedRange);
+            %observedHeading   = atan2(observedPosition(2),observedPosition(1));
             % PRESENT SIZE PROPERTIES
-            observedRadius    = SIMfirstObject.radius;     
-            observedAngularWidth = 2*asin(observedRadius/(observedRange + observedRadius));               
+            %observedRadius    = SIMfirstObject.radius;     
+            %observedAngularWidth = 2*asin(observedRadius/(observedRange + observedRadius));               
                         
             % OBJECT GEOMETRY PREPARATION
             % In order for the agent to observe the object correctly. The
@@ -541,26 +570,6 @@ switch SIMfirstObject.type
             %   object will be visable to the agent. a process must be in
             %   place to create a subset of the geometry.
 
-            % THE GEOMETRIC PARAMETERS
-            if size(secondObject.GEOMETRY.vertices,1) > 0
-                % Rotate evaluation object geometry into the global space,
-                % then rotate it back into the local space of the reference.                
-                % THE RELATIVE ROTATIONS OF THE SECOND BODY
-                relativeR = SIMfirstObject.R'*SIMsecondObject.R; 
-                % THE CONTAINER FOR THE RELATIVE GEOMETRY
-                observedGeometry = struct('vertices',secondObject.GEOMETRY.vertices*relativeR + observedPosition',...
-                                          'normals', secondObject.GEOMETRY.normals*relativeR,...
-                                          'faces',   secondObject.GEOMETRY.faces,...
-                                          'centroid',secondObject.GEOMETRY.centroid + observedPosition');
-                % [TO-DO] Reduce the structure sent to match the exposed geometry                      
-                                      
-%                 % PROCESS THE VISIBLE GEOMETRY (The sub-set of the geometry that is visible to the agent.)
-%                 observedGeometry = OMAS_restrictedGeometry(zeros(3,1),SIMfirstObject.detectionRadius,relativeGeometry);                   
-            else
-                % THE OBSERVED GEOMETRY IS EMPTY
-                observedGeometry = secondObject.GEOMETRY;                  % Pass the empty structure
-            end
-            
             % OBJECT PRIORITY (IF WAYPOINT)
             observedPriority = NaN;
             if SIMsecondObject.type == OMAS_objectType.waypoint
@@ -577,17 +586,9 @@ switch SIMfirstObject.type
             detectionObject = struct('objectID',SIMsecondObject.objectID,...            % The object ID (observed)
                                      'name',SIMsecondObject.name,...                    % The object name tag (observed)
                                      'type',SIMsecondObject.type,...                    % The objects sim-type enum
-                                     'radius',observedRadius,...                        % The objects true size
-                                     'position',observedPosition(dimensionIndices,1),...% The apparent position in the relative frame
-                                     'velocity',observedVelocity(dimensionIndices,1),...% The apparent velocity in the relative frame
-                                     'range',observedz,...                              % The apparent range
+                                     'z',observedz,...                                  % The apparent range
                                      'F',observedF,...                                  % The motion model jacobian
                                      'Q',observedQ,...                                  % The motion model covariance
-                                     'id_list',[],...                                   % The motion model covariance
-                                     'elevation',observedElevation,...                  % The apparent inclination angle
-                                     'heading',observedHeading,...                      % The apparent Azimuth angle
-                                     'width',observedAngularWidth,...                   % The apparent angular width at that range    
-                                     'geometry',observedGeometry,...                    % The observable geometrical components
                                      'colour',SIMsecondObject.colour,...                % Finally the simulation's colourID 
                                      'DEBUG',DEBUG);                                    % Pass additional parameters (not otherwise known)
             observationPacket = vertcat(observationPacket,detectionObject);             % Append object to packet to agent
@@ -598,7 +599,7 @@ switch SIMfirstObject.type
         % agents cycle with this information.
         try
             % SEND OBJECT OBSERVERATION PACKET TO AGENT
-            referenceObject = referenceObject.main(ENV,observationPacket);                      % Hand the current sim TIME object and complete observation packet
+            referenceObject.InformationFilter(ENV.dt,observationPacket);                      % Hand the current sim TIME object and complete observation packet
         catch objectProcessError             
             warning('[%s]: Cycle failed, there was a problem with the object (%s) file, please check: %s',...
                      SIM.phase,referenceObject.name,objectProcessError.stack(1).name);
@@ -787,6 +788,10 @@ function [graph, id_to_index] = create_graph(agents)
         end
     end
     
+    if size(adj,1) == 1 & size(adj,2) == 1
+        tmp = 0;
+    end
+    
     graph = generate_graph(adj);
     
 end
@@ -832,6 +837,7 @@ function [consensus_data] = consensus_group(agents, step, num_steps)
         ratio = step / num_steps;
         Y = Y_prior + ratio*size_comp(i)*delta_I;
         y = y_prior + ratio*size_comp(i)*delta_i;
+        
         consensus_data{i}.Y = Y;
         consensus_data{i}.y = y;
         consensus_data{i}.Y_prior = Y_prior;
@@ -841,38 +847,235 @@ function [consensus_data] = consensus_group(agents, step, num_steps)
     end
 end
 
-function [] = consensus(agent_groups)
+function [agent_groups] = consensus(agent_groups)
     num_steps = 20;
     for group_num = 1:numel(agent_groups)
-        
-        % Compute first consensus step
-        step = 1;
-        for i = 1:numel(agent_groups{group_num})
-            consensus_data{step, group_num}{i}.Y_prior = agent_groups{group_num}(i).memory_Y;
-            consensus_data{step, group_num}{i}.y_prior = agent_groups{group_num}(i).memory_y;
-            consensus_data{step, group_num}{i}.delta_I = agent_groups{group_num}(i).memory_I;
-            consensus_data{step, group_num}{i}.delta_i = agent_groups{group_num}(i).memory_i;
-        end
-        
-        % Compute the remaining consensus steps
-        for step = 2:num_steps
-            consensus_data{step, group_num} = consensus_group(agent_groups{group_num}, step, num_steps);
-            
-            % After all agents' variables have been computed, store them
+        if numel(agent_groups{group_num}) == 1
+            agent_groups{group_num}.memory_Y = agent_groups{group_num}.memory_Y + agent_groups{group_num}.memory_I;
+            agent_groups{group_num}.memory_y = agent_groups{group_num}.memory_y + agent_groups{group_num}.memory_i;
+        else
+            % Compute first consensus step
+            step = 1;
+            for i = 1:numel(agent_groups{group_num})
+                consensus_data{step, group_num}{i}.Y_prior = agent_groups{group_num}(i).memory_Y;
+                consensus_data{step, group_num}{i}.y_prior = agent_groups{group_num}(i).memory_y;
+                consensus_data{step, group_num}{i}.delta_I = agent_groups{group_num}(i).memory_I;
+                consensus_data{step, group_num}{i}.delta_i = agent_groups{group_num}(i).memory_i;
+            end
+
+            % Compute the remaining consensus steps
+            for step = 2:num_steps
+                consensus_data{step, group_num} = consensus_group(agent_groups{group_num}, step, num_steps);
+
+                % After all agents' variables have been computed, store them
+                for i = 1:numel(consensus_data{step, group_num})
+                    agent_groups{group_num}(i).memory_Y = consensus_data{step, group_num}{i}.Y_prior;
+                    agent_groups{group_num}(i).memory_y = consensus_data{step, group_num}{i}.y_prior;
+                    agent_groups{group_num}(i).memory_I = consensus_data{step, group_num}{i}.delta_I;
+                    agent_groups{group_num}(i).memory_i = consensus_data{step, group_num}{i}.delta_i;
+                end
+            end
+
+            % Store final consensus in each agent
             for i = 1:numel(consensus_data{step, group_num})
-                agent_groups{group_num}(i).memory_Y = consensus_data{step, group_num}{i}.Y_prior;
-                agent_groups{group_num}(i).memory_y = consensus_data{step, group_num}{i}.y_prior;
-                agent_groups{group_num}(i).memory_I = consensus_data{step, group_num}{i}.delta_I;
-                agent_groups{group_num}(i).memory_i = consensus_data{step, group_num}{i}.delta_i;
+                agent_groups{group_num}(i).memory_Y = consensus_data{step, group_num}{i}.Y;
+                agent_groups{group_num}(i).memory_y = consensus_data{step, group_num}{i}.y;
+                agent_groups{group_num}(i).memory_P = inv(consensus_data{step, group_num}{i}.Y);
+                agent_groups{group_num}(i).memory_x = inv(consensus_data{step, group_num}{i}.Y) * consensus_data{step, group_num}{i}.y;
             end
         end
-        
-        % Store final consensus in each agent
-        for i = 1:numel(consensus_data{step, group_num})
-            agent_groups{group_num}(i).memory_Y = consensus_data{step, group_num}{i}.Y;
-            agent_groups{group_num}(i).memory_y = consensus_data{step, group_num}{i}.y;
+    end
+end
+
+function [rel_pos] = position_from_id(agent, id)
+
+    x = inv(agent.memory_Y) * agent.memory_y;
+    index_id = find(id == agent.memory_id_list);
+    index_agent = find(agent.objectID == agent.memory_id_list);
+    dim_state = agent.dim_state;
+
+    % Generate indices (to make the assignment setp shorter)
+    meas_low = dim_state*(index_id - 1) + 1;
+    meas_high = dim_state*index_id;
+    agent_low = dim_state*(index_agent - 1) + 1;
+    agent_high = dim_state*index_agent;
+
+    rel_pos = x(meas_low:meas_high) - x(agent_low:agent_high);
+end
+
+% /////////////////// SIMULATION OUTPUT OPERATIONS ////////////////////////
+
+function update_agents_from_consensus(SIM, detection, objectIndex)
+    observed_objects = [];
+    for index = 1:numel(detection)
+        for id_index = 1:numel(detection{index})
+            agent = objectIndex{index};
+            tmp = detection{index}.objectID;
+            position = position_from_id(agent, tmp);
+            detected_pos = detection{index}.position;
+            detection{index}.position(1) = position(1);
+            ENV = SIM.TIME;
+            agent.main(ENV,observationPacket);
         end
     end
+end
+
+% UPDATE THE OBJECT PROPERTIES
+function [referenceObject,objectEVENTS] = UpdateObject(SIM,objectIndex,referenceObject)
+% This function updates a referenceObject class against the rest of the
+% objectIndex, independantly of the SIM.OBJECTS META data.
+% INPUTS:
+% SIM             - Current META structure
+% objectIndex     - The current object list
+% referenceObject - The agent object being updated
+
+% OUTPUTS:
+% referenceObject - The updated agent class
+
+objectEVENTS = []; % Container for object based events
+
+% GET THE OBJECTS EQUIVALENT SIM OBJECT
+SIMfirstObject = SIM.OBJECTS(SIM.globalIDvector == referenceObject.objectID);
+firstObject = objectIndex{SIM.globalIDvector == SIMfirstObject.objectID};
+
+% If the observing object is "2D"
+if referenceObject.Is3D()
+    dimensionIndices = 1:3;
+else
+    dimensionIndices = 1:2;
+end
+
+if SIM.verbosity >= 2
+    fprintf('[UPDATE]\tCycling ID:%d\t name: %s\n',SIMfirstObject.objectID,referenceObject.name);
+
+end
+
+% Default timing parameters
+ENV = SIM.TIME;
+ENV.outputPath = SIM.outputPath;
+
+if SIM.verbosity >= 2
+    fprintf('[UPDATE]\tCycling ID:%d\t name: %s\n',SIMfirstObject.objectID,referenceObject.name);
+end
+
+observationPacket = [];
+% SWITCH BEHAVIOUR BASED ON OBJECT TYPE
+switch SIMfirstObject.type
+    case OMAS_objectType.agent
+        % AGENT - SIMULATION/ENVIROMENTAL FEEDBACK REQUIRED %%%%%%%%%%%%%%
+        % Container for agent detection packet
+        
+        % //// PARSE THE ENVIRONMENTAL OBJECTS OBSERVABLE TO THE AGENT ////
+        for ID2 = firstObject.memory_id_obs
+            % GET THE SIM OBJECT OF THE EVALUATION OBJECT
+            SIMsecondObject = SIM.OBJECTS(ID2);
+            
+            % GET THE EQUIVALENT OBJECT TO EVALUATE AGAINST THE REFERENCE
+            secondObject = objectIndex{SIM.globalIDvector == SIMsecondObject.objectID};
+                            
+            % ///////////////// ELSE AGENT IS DETECTED ////////////////////
+            % ////// (GENERATE A LOCALISED PROXIMITY DESCIPTION) //////////
+            % The second agent is within global seperation conditions. A
+            % communication packet is therefore assembled containing the
+            % data on the second object. rotated into the agent-local
+            % coordinate frame.
+            
+            % GET THE RELATIVE POSITIONS OF THE AGENT AND OBJECT IN THE 
+            % GLOBAL COORDINATE SYSTEM (x_rel = x_B - x_A)
+            relativePosition = [position_from_id(firstObject, secondObject.objectID); 0];
+            relativeVelocity = SIMsecondObject.globalState(4:6) - SIMfirstObject.globalState(4:6);
+            % ROTATE THE GLOBAL STATE OF THE OBJECT INTO THE AGENT FRAME
+            observedPosition = SIMfirstObject.R*relativePosition;          % Rotate the from the global into the body frame of the simReference
+            observedVelocity = SIMfirstObject.R*relativeVelocity;
+            % SPHERICAL REPRESENTATION
+            observedRange     = norm(observedPosition);
+            observedElevation = asin(observedPosition(3)/observedRange);
+            observedHeading   = atan2(observedPosition(2),observedPosition(1));
+            % PRESENT SIZE PROPERTIES
+            observedRadius    = SIMfirstObject.radius;     
+            observedAngularWidth = 2*asin(observedRadius/(observedRange + observedRadius));               
+                        
+            % OBJECT GEOMETRY PREPARATION
+            % In order for the agent to observe the object correctly. The
+            % geometry must be translated and rotated into the relative
+            % frame of the detecting agent.
+            % ASSUMPTION:
+            % - The geometry is normalised to the body axes of the object.
+            % TO DO:
+            % - If the object is on the edge of vision.. only part of the
+            %   object will be visable to the agent. a process must be in
+            %   place to create a subset of the geometry.
+
+            % THE GEOMETRIC PARAMETERS
+            if size(secondObject.GEOMETRY.vertices,1) > 0
+                % Rotate evaluation object geometry into the global space,
+                % then rotate it back into the local space of the reference.                
+                % THE RELATIVE ROTATIONS OF THE SECOND BODY
+                relativeR = SIMfirstObject.R'*SIMsecondObject.R; 
+                % THE CONTAINER FOR THE RELATIVE GEOMETRY
+                observedGeometry = struct('vertices',secondObject.GEOMETRY.vertices*relativeR + observedPosition',...
+                                          'normals', secondObject.GEOMETRY.normals*relativeR,...
+                                          'faces',   secondObject.GEOMETRY.faces,...
+                                          'centroid',secondObject.GEOMETRY.centroid + observedPosition');
+                % [TO-DO] Reduce the structure sent to match the exposed geometry                      
+                                      
+%                 % PROCESS THE VISIBLE GEOMETRY (The sub-set of the geometry that is visible to the agent.)
+%                 observedGeometry = OMAS_restrictedGeometry(zeros(3,1),SIMfirstObject.detectionRadius,relativeGeometry);                   
+            else
+                % THE OBSERVED GEOMETRY IS EMPTY
+                observedGeometry = secondObject.GEOMETRY;                  % Pass the empty structure
+            end
+            
+            % OBJECT PRIORITY (IF WAYPOINT)
+            observedPriority = NaN;
+            if SIMsecondObject.type == OMAS_objectType.waypoint
+                association = objectIndex{ID2}.GetAgentAssociation(referenceObject);
+                observedPriority = association.priority;
+            end
+            
+            % A DEBUG STUCTURE 
+            DEBUG = struct('globalPosition',SIMsecondObject.globalState(dimensionIndices),...     % Added for simplicity
+                           'globalVelocity',SIMsecondObject.globalState(dimensionIndices + 3),... % Added for simplicity
+                           'priority',observedPriority);                                          % The objects global priority for that agent
+            
+            % ///////////////// PREPARE DETECTION PACKET //////////////////
+            detectionObject = struct('objectID',SIMsecondObject.objectID,...            % The object ID (observed)
+                                     'name',SIMsecondObject.name,...                    % The object name tag (observed)
+                                     'type',SIMsecondObject.type,...                    % The objects sim-type enum
+                                     'radius',observedRadius,...                        % The objects true size
+                                     'position',observedPosition(dimensionIndices,1),...% The apparent position in the relative frame
+                                     'velocity',observedVelocity(dimensionIndices,1),...% The apparent velocity in the relative frame
+                                     'range',observedRange,...                          % The apparent range
+                                     'elevation',observedElevation,...                  % The apparent inclination angle
+                                     'heading',observedHeading,...                      % The apparent Azimuth angle
+                                     'width',observedAngularWidth,...                   % The apparent angular width at that range    
+                                     'geometry',observedGeometry,...                    % The observable geometrical components
+                                     'colour',SIMsecondObject.colour,...                % Finally the simulation's colourID 
+                                     'DEBUG',DEBUG);                                    % Pass additional parameters (not otherwise known)
+            observationPacket = vertcat(observationPacket,detectionObject);             % Append object to packet to agent
+        end
+
+        % /////////////// COMPUTE THE LOCAL AGENT CYCLE ///////////////////
+        % Given the detection object defined for this agent, compute the
+        % agents cycle with this information.
+        try
+            % SEND OBJECT OBSERVERATION PACKET TO AGENT
+            referenceObject.main(ENV,observationPacket);                      % Hand the current sim TIME object and complete observation packet
+        catch objectProcessError             
+            warning('[%s]: Cycle failed, there was a problem with the object (%s) file, please check: %s',...
+                     SIM.phase,referenceObject.name,objectProcessError.stack(1).name);
+            rethrow(objectProcessError);    
+        end
+    case OMAS_objectType.obstacle
+        % PASSIVE - NO FEEDBACK REQUIRED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        referenceObject = referenceObject.main(ENV);
+    case OMAS_objectType.waypoint
+        % WAYPOINTS ARE CONSIDERED PASSIVE - NO FEEDBACK REQUIRED %%%%%%%%%
+        referenceObject = referenceObject.main(ENV);
+    otherwise
+        % CONSIDERED PASSIVE - NO FEEDBACK REQUIRED %%%%%%%%%%%%%%%%%%%%%%%
+        % DO NOT UPDATE
+end
 end
 
 % /////////////////// SIMULATION OUTPUT OPERATIONS ////////////////////////
