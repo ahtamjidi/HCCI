@@ -1,4 +1,4 @@
-function [nees_results] = nees_func()
+function [nees_results] = nees_func(Trt)
 %Function to compute errors for NEES evaluation
 %@Naveed
 
@@ -6,90 +6,66 @@ global opt_dist
 
 %% calculate error statistics
 if opt_dist.FLAGS.compare_with_CI
-    nees_results.ICI = calc_error_stat('ICI');
+    [nees_results.ICI] = calc_error_stat('ICI',Trt);
 end
 if opt_dist.FLAGS.our_method
-    nees_results.Hybrid = calc_error_stat('Hybrid');
+    [nees_results.Hybrid] = calc_error_stat('Hybrid',Trt);
 end
 
-nees_results.Gold = calc_error_stat('Gold');
-nees_results.cen = calc_error_stat('Cent');
+[nees_results.Gold] = calc_error_stat('Gold',Trt);
+[nees_results.cen] = calc_error_stat('Cent',Trt);
 
 end
 
-function nees_mean = calc_error_stat(method)
+function [nees_mean] = calc_error_stat(method,Trt)
 %Compute Normalised error
     global opt_dist
-
-    max_it = opt_dist.nSteps;
-    if max_it < 3
-        start_step = 2;%2 for Ren;
-    else
-        start_step = max_it - 3;
-    end
 
     x_gt = opt_dist.sim.gt.x_bar;
 
     for j_agent = 1 : opt_dist.nAgents
-        
-        for i_consensus=start_step : max_it
-            
-            if opt_dist.FLAGS.our_method
-                %% Getting the Estimate of Agent j_agent
-                switch method
-                    case 'ICI'
-                        P = inv(opt_dist.result.est{i_consensus}.Y_bar_CI(:,:,j_agent));
-                        x = P*(opt_dist.result.est{i_consensus}.y_bar_CI(:,j_agent));
-                        %disp('ICI');
-                        nees_array(i_consensus - start_step +1) = (x - x_gt)'*inv(P)*(x - x_gt);
-                    case 'Hybrid'
-                        P = inv(opt_dist.result.est{i_consensus}.Y_bar(:,:,j_agent));
-                        x = P*(opt_dist.result.est{i_consensus}.y_bar(:,j_agent));
-                        %disp('Hybrid');
-                        nees_array(i_consensus - start_step +1) = (x - x_gt)'*inv(P)*(x - x_gt);
-                end
-
-                %% Error vs. Ground Truth
-                %disp('state_error:');
-                %size(x - x_gt)
-                %disp('size of P:');
-                %size(P)
-                
-
-            end
-        end
         
         switch method
             case 'Gold'
                 %disp('Gold');
                 P_gold =  opt_dist.result.est_gold{j_agent}.P_bar; 
                 x_gold = opt_dist.result.est_gold{j_agent}.x_bar ;
-                
-                nees_mean(j_agent) = (x_gold - x_gt)'*inv(P_gold)*(x_gold - x_gt);
+                error = (x_gold - x_gt);
+                nees_mean(j_agent) = error'*inv(P_gold)*error;
+                %P = 0;
         
             case 'ICI'
                 %disp('ICI');
-                P = inv(opt_dist.result.est{i_consensus}.Y_bar_CI(:,:,j_agent));
-                x = P*(opt_dist.result.est{i_consensus}.y_bar_CI(:,j_agent));
-                      
-               nees_array(i_consensus - start_step +1) = 
-                nees_mean(j_agent) = (x - x_gt)'*inv(P)*(x - x_gt);
+                P = inv(opt_dist.result.est{end}.Y_bar_CI(:,:,j_agent));
+                x = P*(opt_dist.result.est{end}.y_bar_CI(:,j_agent));
+                error = (x - x_gt);
+                nees_mean(j_agent) = error'*inv(P)*error;
+                %P = 0;
             
             case 'Hybrid'
                 %disp('Hybrid');
-                nees_mean(j_agent) = mean(nees_array(:));
-            
+                P = inv(opt_dist.result.est{end}.Y_bar(:,:,j_agent));
+                x = P*(opt_dist.result.est{end}.y_bar(:,j_agent));   
+                error = (x - x_gt);
+                nees_mean(j_agent) = error'*inv(P)*error;
+                %P = 0;
+                
             case 'Cent'
-                disp('Cent');
+                %disp('Cent');
         
                 P_cen = inv(opt_dist.result.est{1}.Y_cen);
                 x_cen = P_cen*(opt_dist.result.est{1}.y_cen);
-                disp('Eig(P)'); 
-                eig(P_cen)
-                disp('error:');
-                x_cen - x_gt
-                nees_mean(j_agent) = (x_cen - x_gt)'*inv(P_cen)*(x_cen - x_gt)
-    
+                
+                %disp('error:');
+                %error = x_cen - x_gt; 
+                error = (x_cen - x_gt);
+                nees_mean(j_agent) = error'*inv(P_cen)*error;
+                
+                if j_agent == 1 %for printing
+                    disp(['Eig(P)=',num2str(eig(P_cen)')]); 
+                    disp(['nees_mean=',num2str(nees_mean(j_agent))]);
+                end
+                %P(j_agent) = sqrt(P_cen(4,4));
                 
         end
 

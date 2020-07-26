@@ -30,10 +30,10 @@ for idx_agent=1:opt_dist.nAgents
             %             delta_noise = randn(opt_dist.dimObs,1)*sqrt(opt_dist.obs.R);
             switch opt_dist.FLAGS.obs_noise_type
                 case 'absolute'
-                    delta_noise = randn(opt_dist.dimObs,1).*sqrt(opt_dist.obs.R);
+                    delta_noise = randn(opt_dist.dimObs,1).*sqrt(opt_dist.obs.R); %measurement noise
                 case 'relative'
-                    delta_noise = randn(opt_dist.dimObs,1).*sqrt(min(10^-5,opt_dist.obs.rel_perc.*z_temp));
-                    
+                    %delta_noise = randn(opt_dist.dimObs,1).*sqrt(min(10^-5,opt_dist.obs.rel_perc.*z_temp)); 
+                    delta_noise = randn(opt_dist.dimObs,1).*sqrt(min(10^-5,opt_dist.obs.rel_perc.*abs(z_temp)));%TODO commented prev. 
                     
             end
             z_noise = z_temp + delta_noise;

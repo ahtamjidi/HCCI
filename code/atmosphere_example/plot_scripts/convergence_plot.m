@@ -1,7 +1,7 @@
 clearvars
 close all
 clc
-load('/home/naveed/Documents/DSE_data/80_states_convergence_rate_80_agents.mat')
+load('/home/naveed/Documents/DSE_data/80_states_convergence_rate_30_100.mat')
 agents_count = n_receptors_array;
 steps = size(converg_steps_array,2);
 T = size(error_(1,1).e_BC_dist_gold,2);    
@@ -48,19 +48,20 @@ end
 
 boxes = findall(gca,'Tag','Box');
 xticks(converg_steps_array)
-xticklabels({'1','','','','','','','','','','100','','','','','200','300','400','600','800','1000'}) %,
+%xticklabels({'1','','','','','','','','','','100','','','','','200','300','400','600','800','1000'}) %,
+xticklabels({'1','','10','','20','30','40','50','60','80','100','120','140','160','180','200'}) %,
 hLegend = legend(boxes([1 end]), {'ICI','Hybrid'},'Location','northwest','Fontsize',14);
 xlabel('Number of consensus iterations','FontSize', 12)
 ylabel('$D_B$','Interpreter','latex','FontSize', 14)
 ax = gca;
 ax.FontSize = 12; 
 ylim([0 1.1])
-xlim([0 1020]);
+xlim([0 210]);
 set(fig,'Units','inches');
 screenposition = get(fig,'Position');
 set(fig,...
     'PaperPosition',[0 0 screenposition(3:4)],...
     'PaperSize',[screenposition(3:4)]);
 
-print -dpdf -painters '/home/naveed/Dropbox/Research/Data/T_RO_DSE/convergence_80states_80agents.pdf' ;
+%print -dpdf -painters '/home/naveed/Dropbox/Research/Data/T_RO_DSE/convergence_80states_80agents.pdf' ;
 %print -dpdf -painters 'time_taken_80states_30agents.pdf' ;

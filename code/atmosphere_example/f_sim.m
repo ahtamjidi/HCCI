@@ -9,7 +9,7 @@ if flag_noise
         percent_of_noise = 100*(delta_noise./x_next);
         disp(['Percentage of input Noise = ', num2str(mean(percent_of_noise))])
         disp('---------------------')
-        disp(mean(percent_of_noise))
+        %disp(mean(percent_of_noise))
         disp('---------------------')
     end
     

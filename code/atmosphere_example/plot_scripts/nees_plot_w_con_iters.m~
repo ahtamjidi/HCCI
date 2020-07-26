@@ -1,9 +1,9 @@
 %%NEES Plot with consensus iterations
 % Author: Naveed (mohdnaveed96@gmail.com)
 clear all;
-load('/home/naveed/Documents/DSE_data/10_states_nees_test_15_agents_all4.mat');
+load('/home/naveed/Documents/DSE_data/20_states_nees_test_15_agents_all4_10.mat');
 t_steps = size(nees_results,3);
-dim_state = 10;
+dim_state = 20;
 n_agents = 15;
 
 %Hyb_data = zeros(t_steps,n_agents);
@@ -58,25 +58,41 @@ nees_ub = 0.50*((sqrt(2*dim_state*nees_runs - 1) + 1.96)^2)/nees_runs;
 %%
 fig = figure(1);
 t = 1:t_steps;
+%color scheme
+ICI_color = (1/255).*[0,255,255; 0,0,0; 0,204,204; 0,0,153];
+Hyb_color = (1/255).*[255,0,0; 0,0,0; 51,255,51; 0,103,51];
+
+plot(t,Gold_mean(c_steps,:),'Marker','*','LineWidth',3,'color',[0.9290, 0.6940, 0.1250],'DisplayName','FHS');
+hold on
+%plot(t,cen_mean(c_steps,:),':','Marker','*','LineWidth',3,'color','m','DisplayName','Centralised');
 for j = 1:c_steps
 
+    plot(t,Hyb_mean(j,:),'--','Marker','*','LineWidth',2,'color',Hyb_color(j,:),'DisplayName',['Hybrid' '-' num2str(converg_steps_array(j)) ' step']);
+end
+for j =1:c_steps
+
     %plot(t,Gold_mean(j,:),'Marker','*','LineWidth',2,'color',[0.9290, 0.6940, 0.1250],'DisplayName','FHS');
-    hold on
-    p = plot(t,ICI_mean(j,:),'Marker','*','LineWidth',2,'color','b');
-    p.Annotation.LegendInformation.IconDisplayStyle = 'off';
-    plot(t,Hyb_mean(j,:),'--','Marker','*','LineWidth',2,'DisplayName',['Hybrid' '-' num2str(converg_steps_array(j)) 'step']);
+   
+    p = plot(t,ICI_mean(j,:),'Marker','*','LineWidth',2,'color',ICI_color(j,:),'DisplayName',['ICI' '-' num2str(converg_steps_array(j)) ' step']);
+    %p.Annotation.LegendInformation.IconDisplayStyle = 'off';
+  
     %plot(t,cen_mean(j,:),':','Marker','*','LineWidth',2,'color','m','DisplayName','Centralised');
 end
-plot(t,Gold_mean(c_steps,:),'Marker','*','LineWidth',3,'color',[0.9290, 0.6940, 0.1250],'DisplayName','FHS');
-plot(t,ICI_mean(c_steps,:),'Marker','*','LineWidth',2,'color','b','DisplayName','ICI');
-plot(t,cen_mean(c_steps,:),':','Marker','*','LineWidth',3,'color','m','DisplayName','Centralised');
-%plot(t,80*.95653*ones(t_steps,1),'LineWidth',2,'color','k');
-%plot(t,80*1.0441*ones(t_steps,1),'LineWidth',2,'color','r');
-plot(t,nees_lb.*ones(t_steps,1),'LineWidth',2,'color','k','DisplayName','Lower Bound');
-plot(t,nees_ub.*ones(t_steps,1),'LineWidth',2,'color','r','DisplayName','Upper Bound');
+
+%outside the loop to avoid repetition in case of multiple converg steps.
+ 
+%plot(t,ICI_mean(c_steps,:),'Marker','*','LineWidth',2,'color','b','DisplayName','ICI');
+
+lb = plot(t,nees_lb.*ones(t_steps,1),'LineWidth',2,'color','k','DisplayName','Lower Bound');
+ub = plot(t,nees_ub.*ones(t_steps,1),'LineWidth',2,'color',(1/255).*[153,51,0],'DisplayName','Upper Bound');
+%lb.Annotation.LegendInformation.IconDisplayStyle = 'off';
+%ub.Annotation.LegendInformation.IconDisplayStyle = 'off';
+
 %hlegend = legend('FHS','ICI','Hybrid','Centralised','Lower Bound','Upper Bound');
-%set(hlegend,'Fontsize',14)
-legend('Location','SouthEast')
+
+hlegend = legend('Location','eastoutside');
+set(hlegend,'Fontsize',10);
+
 xlabel('Time(s)','FontSize', 12)
 ylabel('Average NEES','FontSize', 12)
 %ylim([-0.1,1.1])
@@ -86,7 +102,7 @@ screenposition = get(fig,'Position');
 set(fig,...
     'PaperPosition',[0 0 screenposition(3:4)],...
     'PaperSize',[screenposition(3:4)]);
-%print -dpdf -painters '/home/naveed/Dropbox/Research/Data/T_RO_DSE/nees_40states_40agents_w_con_iters_rand_mod.pdf' ;
+%print -dpdf -painters '/home/naveed/Dropbox/Research/Data/T_RO_DSE/nees_20states_15agents.pdf' ;
 %{
 fig = figure(2);
 t = 1:t_steps;

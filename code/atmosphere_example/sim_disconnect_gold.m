@@ -1,5 +1,6 @@
 function sim_disconnect_gold()
 global opt_dist fail_prob reg_deg
+
 switch opt_dist.scenario
     case '1'
 %         disconnection_interval = (opt_dist.i_step > 2 && opt_dist.i_step<10) ||...
@@ -25,6 +26,7 @@ switch opt_dist.scenario
  
         end
     case '2'
+        
         [flag_coon,G] = generate_graph_for_diag(opt_dist.reg_degree,opt_dist.n_degree_graph,fail_prob);
         %         flag_coon
         opt_dist.Graphs.G_obs = G;

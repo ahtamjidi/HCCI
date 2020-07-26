@@ -1,4 +1,4 @@
-function [Ar,x0,Br,Cr] = create_sys_atmosphere_gold(reduced_system_dim,n_receptors)
+function [Ar,x0,Br,Cr,Trt] = create_sys_atmosphere_gold(reduced_system_dim,n_receptors)
 if(nargin==0) 
     reduced_system_dim = 80;
 end   
@@ -132,10 +132,18 @@ end
 
 Ft = (1 - (source.x - x0(dissource.x))/dx).*(1 -(source.y - y0(dissource.y))/dy) .* (1- (source.z - z0(dissource.z))/dz) .* source.Q *dt/(dx*dy*dz);
 
-C = sparse(recept.n, NUM_SYS); %change 
+C = sparse(recept.n, NUM_SYS);  
+
 for ns = 1 : recept.n
     C(ns,(nx-1)*(ny-1) * (disrecept.z(1,ns)-1) + (nx-1) * (disrecept.y(1,ns) -2) + disrecept.x(1,ns)-1) = 1;
 end
+
+%{
+for ns = 1 : recept.n
+    C(ns,:) = ones(1,size(C,2)); %TODO commented above
+end
+%}
+
 %{ %redundant
 source.n = 10;                         % # of sources
 source.x = [280, 300, 900, 1100, 500,1300,500,1700,1400,700];     % x-location (m)
@@ -195,7 +203,21 @@ Xp = Xs(:, 1:end);
 Yp = Ys(:, 1:end);
 Ht =Yp' * Xp;
 %%
-[Ut, St, Vt] = svd(Ht);
+[Ut, St, Vt] = svd(Ht); %singular value decomposition
+%disp('St');
+diag_St = zeros(size(St,1),1);
+
+for i=1:size(St,1) 
+    
+    %disp('i='); disp(i);
+    diag_St(i) = St(i,i);  
+    
+end
+%{
+figure(1) %plotting singular values
+i=1:10;
+plot(i,diag_St(1:10),'Linewidth',4)
+%}
 NUM_NON = reduced_system_dim;
 Unt = Ut(:, 1:NUM_NON);
 Snt = St(1:NUM_NON, 1:NUM_NON);
@@ -222,7 +244,7 @@ At=  Tlt*Temp;
 Bt = Tlt * B;
 Ct = C * Trt;
 
-opt_dist.A =At;
+opt_dist.A = At;
 opt_dist.B = Bt;
 opt_dist.C = Ct;
 Ar = At;

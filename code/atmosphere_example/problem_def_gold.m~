@@ -20,17 +20,17 @@ opt_dist.dimState = size(A,1);
 % r_var = 10^(-4);
 % atmospheric
 q_var = 10^(-6);
-r_var = 5*10^(-5); %10^(-14);
+r_var = %5*10^(-5);
 
 % Q = q_var*eye(size(A));
 % R = r_var*eye(size(C,1));
-opt_dist.reg_degree = 4; %increases connectivity of graph
+opt_dist.reg_degree = 15; %??
 opt_dist.n_degree_graph = opt_dist.nAgents;
 opt_dist.obs.rel_perc = 0.05;%0.05*10^(-8);
 
 opt_dist.obs.R = r_var;
 %opt_dist.figures.fig_cov_debug = figure;
-opt_dist.FLAGS.debug = 0; 
+opt_dist.FLAGS.debug = 1; %TODO
 opt_dist.FLAGS.debug_consensus = 0;
 opt_dist.iter_interest = [1];
 opt_dist.FLAGS.obs_noise_type = 'absolute'; % ('absolute' | 'relative'); %TODO relative doesn't work correctly.

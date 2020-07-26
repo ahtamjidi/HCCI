@@ -1,11 +1,13 @@
 function consenus_gold()
+
 global opt_dist
+
 %% centralized update
 opt_dist.result.update.delta_i_cen = zeros(size(opt_dist.result.pred.x_cen));
 opt_dist.result.update.delta_I_cen  = zeros(size(opt_dist.result.pred.P_cen));
 [av_delta_I,av_delta_i] = calculate_aver_info_gold();
-opt_dist.result.update.delta_I_cen = opt_dist.nAgents*av_delta_I; %changed 9 to number of agents
-opt_dist.result.update.delta_i_cen = opt_dist.nAgents*av_delta_i;  %changed 9 to number of agents
+opt_dist.result.update.delta_I_cen = opt_dist.nAgents*av_delta_I;
+opt_dist.result.update.delta_i_cen = opt_dist.nAgents*av_delta_i;  
 opt_dist.result.est{1}.Y_cen = opt_dist.result.pred.Y_cen + opt_dist.result.update.delta_I_cen;
 opt_dist.result.est{1}.y_cen = opt_dist.result.pred.y_cen + opt_dist.result.update.delta_i_cen;
 
@@ -70,7 +72,7 @@ for i_consensus = 2:opt_dist.nSteps
             prev_delta_i(:,:,j_neigh) = opt_dist.result.consenus{j_neigh}.delta_i{i_consensus-1};
         end
         
-        log_message('our method CI')
+        %log_message('our method CI')
         weights_ci = [];inf_mat = [];inf_vect=[];
         [weights_ci,inf_mat,inf_vect] = calc_ci_weights_ver3(I_local,i_local,'tr'); %changed from 'det'
         
@@ -175,9 +177,9 @@ for i_consensus = 2:opt_dist.nSteps
 %            x_local_CI(:,j_neigh)  = P_local_CI*squeeze(i_local_CI(:,:,j_neigh));
         end
 %         x_local_CI
-        log_message('Pure CI')
+        %log_message('Pure CI')
         weights_ci_all=[];inf_mat_ci=[];inf_vect_ci=[];
-        [weights_ci_all,inf_mat_ci,inf_vect_ci] =calc_ci_weights_ver3(I_local_CI,(i_local_CI),'det'); %changed from 'det'
+        [weights_ci_all,inf_mat_ci,inf_vect_ci] =calc_ci_weights_ver3(I_local_CI,(i_local_CI),'tr'); %changed from 'det'
 %         yy = inf_mat_ci\inf_vect_ci
         opt_dist.result.consenus{j_agent}.Y_prior_CI{i_consensus} = inf_mat_ci;
         opt_dist.result.consenus{j_agent}.y_prior_CI{i_consensus} = inf_vect_ci;

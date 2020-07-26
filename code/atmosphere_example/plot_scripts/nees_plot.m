@@ -1,13 +1,13 @@
 %%NEES Plot 
 % Author: Naveed (mohdnaveed96@gmail.com)
-clear all;
-load('/home/naveed/Documents/DSE_data/10_states_nees_test_10_agents_all4_rand_mod_con_iters.mat');
+%clear all;
+%load('/home/naveed/Documents/DSE_data/10_states_nees_test_10_agents_all4_rand_mod_con_iters.mat');
 t_steps = size(nees_results,2);
 n_agents = 10;
 Hyb_data = zeros(t_steps,n_agents);
 ICI_data = zeros(t_steps,n_agents);
 Gold_data = zeros(t_steps,n_agents);
-cen_data = zeros(t_steps,nees_runs); 
+cen_data = zeros(t_steps,n_agents); 
 
 
 nees_runs = size(nees_results,1);
