@@ -213,6 +213,7 @@ classdef objectDefinition < handle
             GLOBAL.position = [0;0;0];                  % Global Cartesian position
             GLOBAL.velocity = [0;0;0];                  % Global Cartesian velocity
             GLOBAL.quaternion = [1;0;0;0];              % Global quaternion pose
+            GLOBAL.X = zeros(12,1);                     % Global 12D state
             GLOBAL.idleStatus = true;                   % object idle logical
             GLOBAL.is3D = true;                         % object operates in 3D logical
             GLOBAL.priorState = [];                            
@@ -384,13 +385,15 @@ classdef objectDefinition < handle
             R_k_plus = quat2rotm(q_k_plus');         
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             v_k_plus = R_k_plus'*localLinearRates;
+            
             p_k_plus = p_k + dt*v_k;
             
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
             this = this.GlobalUpdate_direct(...
-                p_k_plus,...    % Global position at k plius
+                p_k_plus,...    % Global position at k plus
                 v_k_plus,...    % Global velocity at k plus
-                q_k_plus);      % Quaternion at k plus
+                q_k_plus,...    % Quaternion at k plus
+                x_k_plus);      % Local state
         end
         % GLOBAL UPDATE - EULER 6DOF(3DOF) [x y z phi theta psi],[x y psi]
         function [this] = GlobalUpdate(this,dt,eulerState)
@@ -444,11 +447,15 @@ classdef objectDefinition < handle
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             velocity_k_plus = R_k_plus'*localLinearRates;
             position_k_plus = p_k + dt*v_k;
+            
+            x_k_plus = [position_k_plus; quat2eul(q_k_plus')'; velocity_k_plus; omega];
+            
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
             this = this.GlobalUpdate_direct(...
                 position_k_plus,... 	% Global position at k plius
                 velocity_k_plus,...     % Global velocity at k plus
-                q_k_plus);              % Quaternion at k plus
+                q_k_plus,...    % Quaternion at k plus
+                x_k_plus);              % Quaternion at k plus
         end
         % GLOBAL UPDATE - EULER 6DOF(3DOF) (NO ROTATIONS)
         function [this] = GlobalUpdate_fixedFrame(this,dt,eulerState)
@@ -492,22 +499,28 @@ classdef objectDefinition < handle
                 eulerState);            % The new state for reference
         end
         % GLOBAL UPDATE - DIRECTLY (global default)
-        function [this] = GlobalUpdate_direct(this,p,v,q)
+        function [this] = GlobalUpdate_direct(this,p,v,q,x)
             % Under this notation, the state vector already contains the
             % global parameters of the object.
             % INPUTS:
-            % globalPosition - 3D global cartesian position given in the ENU coordinate frame.
-            % globalVelocity - 3D global cartesian velocity given in the ENU coordinate frame. 
-            % quaternion     - The new quaternion pose of body in the global frame.
-            % R              - The rotation of the body
-            % this.localState - The previous localState (independant of convention)
-            % eulerState     - The new state as reported by the agent            
+            % p - globalPosition - 3D global cartesian position given in the ENU coordinate frame.
+            % v - globalVelocity - 3D global cartesian velocity given in the ENU coordinate frame. 
+            % q - quaternion     - The new quaternion pose of body in the global frame.
+            % x - global state   - [x y z phi theta psi dx dy dz dphi dtheta dpsi]
+            % R                  - The rotation of the body
+            % this.localState    - The previous localState (independant of convention)
+            % eulerState         - The new state as reported by the agent            
             
             % Input sanity check
             assert(IsColumn(p,3),'Global position must be a 3D column vector [3x1].');
             assert(IsColumn(v,3),'Global velocity must be a 3D column vector [3x1].');
             assert(IsColumn(q,4),'Global pose must be a 4D quaternion vector [4x1].');
             assert(size(this.localState,2) == 1,'The length of the objects state update must match the its local state.');
+            
+            if nargin == 5
+                assert(IsColumn(x,12),'Global pose must be a 12D row vector [1x12].');
+                this.SetGLOBAL('X',x);                	% Reassign teh 12D state
+            end
             
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
             % Convert the quaternion to the equivalent rotation matrix

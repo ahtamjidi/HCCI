@@ -15,10 +15,12 @@ classdef agent < objectDefinition & agent_tools
     % aerial or ground based.
     properties
         % DEFAULT BEHAVIOUR
-        v_nominal = 2;                  % Default nominal linear speed (m/s)
-        v_max  = 4;                     % Default maximal linear speed (m/s)
-        w_max  = 0.5;                   % Default maximal angular speed (rad/s)
-        detectionRadius = inf;
+        v_nominal = 1;                  % Default nominal linear speed (m/s)
+        v_max  = 2;                     % Default maximal linear speed (m/s)
+        w_max  = 1;                   % Default maximal angular speed (rad/s)
+        detectionRadius = 3;
+        obsRadius = inf;
+        commRadius = inf;
         % WAYPOINTS
         targetWaypoint;                 % The current waypoint target
         achievedWaypoints;              % The agents list of locally achieved waypoints
@@ -30,8 +32,8 @@ classdef agent < objectDefinition & agent_tools
         DATA;                           % The output container for agent-side data.
         
         % DSE Variables
-        dim_obs = 2;
-        dim_state = 2;
+        dim_obs = 6;
+        dim_state = 12;
         R;
         Q;
         
@@ -50,30 +52,6 @@ classdef agent < objectDefinition & agent_tools
         memory_id_list = [];
         memory_id_obs = [];
         memory_id_comm = [];
-        
-%         memory_P_last = [];
-%         memory_x_last = [];
-%         memory_Y_last = [];
-%         memory_y_last = [];
-%         
-%         memory_P_information = [];
-%         memory_x_information = [];
-%         memory_Y_information = [];
-%         memory_y_information = [];
-%         
-%         memory_P_consensus = [];
-%         memory_x_consensus = [];
-%         memory_Y_consensus = [];
-%         memory_y_consensus = [];
-%         
-%         memory_Y_prior = [];
-%         memory_y_prior = [];
-%         memory_delta_I = [];
-%         memory_delta_i = [];
-%         
-%         memory_id_list = [];
-%         memory_id_obs = [];
-%         memory_id_comm = [];
     end
     
     %% ///////////////////////// MAIN METHODS /////////////////////////////
@@ -103,8 +81,8 @@ classdef agent < objectDefinition & agent_tools
             this.R = 0.1*eye(this.dim_obs);
             this.Q = 0.1*eye(this.dim_state);
             this.memory_id_list = [this.objectID];
-            this.memory_Y = 0.5*eye(this.dim_state);
-            this.memory_y = (1:this.dim_state)';
+            this.memory_Y = 10000*eye(this.dim_state);
+            this.memory_y = 0.01*(1:this.dim_state)';
             
             % //////////////// Check for user overrides ///////////////////
             % - It is assumed that overrides to the properties are provided
@@ -278,6 +256,7 @@ classdef agent < objectDefinition & agent_tools
             Y_11 = this.memory_Y;
             y_11 = this.memory_y;
             x_11 = inv(Y_11)*y_11;
+            P_11 = inv(Y_11);
             id_list = this.memory_id_list;
             
             % Pseudocode
@@ -315,15 +294,16 @@ classdef agent < objectDefinition & agent_tools
                     id_list = horzcat(id_list, id);
                     dim = size(y_11,1) + this.dim_state;
                     
-                    tmp = 0.5*eye(dim);
+                    tmp = 100*eye(dim);
                     tmp(1:size(Y_11,1), 1:size(Y_11)) = Y_11;
                     Y_11 = tmp;
                     
                     tmp = (1:dim)';
                     tmp(1:size(y_11,1)) = y_11;
-                    y_11 = tmp;
+                    y_11 = 0.01*tmp;
                     
                     x_11 = inv(Y_11)*y_11;
+                    P_11 = inv(Y_11);
                 end
             end
             
@@ -332,10 +312,14 @@ classdef agent < objectDefinition & agent_tools
             n_obs = numel(observedObjects);
             
             F_0 = zeros(n_stored*this.dim_state);
-            Q_0 = 1*eye(n_stored*this.dim_state);
-            R_0 = 0.01*eye(n_stored*this.dim_obs);
-            H_0 = zeros(n_stored*this.dim_obs, n_stored*this.dim_state);
-            z_0 = ones(n_stored*this.dim_obs,1);
+            Q_0 = zeros(n_stored*this.dim_state);
+            R_0 = 0.001*eye(n_obs*this.dim_obs);
+            H_0 = zeros(n_obs*this.dim_obs, n_stored*this.dim_state);
+            z_0 = zeros(n_obs*this.dim_obs,1);
+            
+%             R_0(1:this.dim_obs,1:this.dim_obs) = 0.1*eye(this.dim_obs);
+%             H_0(1:this.dim_obs,1:this.dim_obs) = eye(this.dim_obs);
+%             z_0(1:this.dim_obs) = zeros(this.dim_obs,1);
             
             % For each observed agent, compute H and z
             for i = 1:numel(observed_ids)
@@ -343,11 +327,14 @@ classdef agent < objectDefinition & agent_tools
                 index = find(id_list==id);
                 obs_index = find(id_list==this.objectID);
                 
-                agent1_row_min = this.dim_obs*(index - 1) + 1;
-                agent1_row_max = agent1_row_min + this.dim_obs - 1;
-            
-                H_0(agent1_row_min:agent1_row_max,:) = this.H_position_2d(x_11, obs_index, index);
-                z_0(agent1_row_min:agent1_row_max) = observedObjects(i).z;
+                i_low = this.dim_obs*(i - 1) + 1;
+                i_high = i_low + this.dim_obs - 1;
+                
+                range = norm(observedObjects(i).z(1:3));
+                R_0(i_low:i_high,i_low:i_high) = 1*svgs_R_from_range_SRT(range);
+                H_0(i_low:i_high,:) = this.H_camera(x_11, obs_index, index);
+                z_0(i_low:i_high) = observedObjects(i).z;
+                
                 tmp_z = H_0 * x_11;
             end
             
@@ -355,8 +342,14 @@ classdef agent < objectDefinition & agent_tools
             for i = 1:numel(id_list)
                 i_low = this.dim_state*(i - 1) + 1;
                 i_high = this.dim_state*(i - 1) + this.dim_state;
-
-                F_0(i_low:i_high,i_low:i_high) = this.F_2d(x_11, i);
+                
+%                 Q_0(i_low:i_high,i_low:i_high) = this.Q_distance(dt, x_11, i);
+                Q_0(i_low:i_high,i_low:i_high) = 1*this.Q_distance(dt, x_11, i);
+                
+%                 F_0(i_low:i_high,i_low:i_high) = this.F(dt);
+%                 obs_list = firstObject.memory_id_obs;
+%                 index = find(obs_list == ID2);
+                F_0(i_low:i_high,i_low:i_high) = this.F_unicycle_2d(dt, x_11, i);
             end
             
             % Compute the information filter steps
@@ -365,32 +358,35 @@ classdef agent < objectDefinition & agent_tools
             L_0 = eye(size(C_0,1)) - C_0;
             Y_01 = L_0*M_0*L_0' + C_0*inv(Q_0)*C_0';
             y_01 = L_0*inv(F_0)'*y_11;
+            Y_00 = Y_01 + H_0'*inv(R_0)*H_0;
+            y_00 = y_01 + H_0'*inv(R_0)*z_0;
             
-            % Consensus Steps
-%             this.memory_Y = Y_01 + H_0'*inv(R_0)*H_0;
-%             this.memory_y = y_01 + H_0'*inv(R_0)*z_0;
-%             this.memory_P = inv(this.memory_Y);
-%             this.memory_x = inv(this.memory_Y) * this.memory_y;
+            x_01 = F_0*x_11;
+            P_01 = F_0*P_11*F_0' + Q_0;
+            y = z_0 - H_0*x_01;
+            S = H_0*P_01*H_0' + R_0;
+            K = P_01*H_0'*inv(S);
+            x_00 = x_01 + K*y;
+            P_00 = (eye(size(K,1)) - K*H_0)*P_01;
+            
+            x_inf = inv(Y_00)*y_00;
+            P_inf = inv(Y_00);
+            
+            % Compare the Information filter to the Kalman Filter
+            % P_kal = P_inf_2
+            % P_01 = F_0*P_11*(F_0') + Q_0
+            P_kal = F_0*inv(Y_11)*(F_0') + Q_0;
+            P_inf = inv(Y_01);
             
             % Store the consensus variables
             this.memory_Y = Y_01;
             this.memory_y = y_01;
             this.memory_I = H_0'*inv(R_0)*H_0;
             this.memory_i = H_0'*inv(R_0)*z_0;
+
             this.memory_id_list = id_list;
             this.memory_id_obs = observed_ids;
             
-%             % Update the position of each object with the filtered position
-%             estimatedObjects = observedObjects;
-%             for i = numel(estimatedObjects)
-%                 id = estimatedObjects(i).objectID;
-%                 my_pos = [this.state_from_id(x_00, id_list, this.objectID); 0];
-%                 pos = estimatedObjects(i).position;
-%                 est_pos = [this.state_from_id(x_00, id_list, id); 0];
-%                 true_range = norm(pos);
-%                 est_range = norm(my_pos - est_pos);
-%                 estimatedObjects(i).position = est_pos;
-%             end
         end
         
         function [ret] = state_from_id(this, x, id_list, id)
@@ -398,6 +394,18 @@ classdef agent < objectDefinition & agent_tools
             i_low = this.dim_state*(j - 1) + 1;
             i_high = this.dim_state*(j - 1) + this.dim_state;
             ret = x(i_low:i_high);
+        end
+        
+        function [ret] = cov_from_id(this, P, id_list, id)
+            j = find(id_list==id);
+            i_low = this.dim_state*(j - 1) + 1;
+            i_high = this.dim_state*(j - 1) + this.dim_state;
+            ret = P(i_low:i_high,i_low:i_high);
+        end
+        
+        function [H] = H_ident(this, x, agent1, agent2)
+            H = zeros(this.dim_state);
+            H(1:6,1:6) = eye(6);
         end
         
         function [Hz] = Hz_range_2d(this, x, agent1, agent2)
@@ -427,9 +435,21 @@ classdef agent < objectDefinition & agent_tools
             agent2_row_max = agent2_row_min + this.dim_obs - 1;
 
             n_states = size(x,1);
-            H = zeros(2, n_states);
-            H(:,agent1_row_min:agent1_row_max) = -eye(2);
-            H(:,agent2_row_min:agent2_row_max) = eye(2);
+            H = zeros(this.dim_obs, n_states);
+            H(:,agent1_row_min:agent1_row_max) = -eye(this.dim_obs);
+            H(:,agent2_row_min:agent2_row_max) = eye(this.dim_obs);
+        end
+
+        function [H] = H_camera(this, x, agent1, agent2)
+            agent1_row_min = this.dim_state*(agent1 - 1) + 1;
+            agent1_row_max = agent1_row_min + this.dim_obs - 1;
+            agent2_row_min = this.dim_state*(agent2 - 1) + 1;
+            agent2_row_max = agent2_row_min + this.dim_obs - 1;
+
+            n_states = size(x,1);
+            H = zeros(this.dim_obs, n_states);
+            H(:,agent1_row_min:agent1_row_max) = -eye(this.dim_obs);
+            H(:,agent2_row_min:agent2_row_max) = eye(this.dim_obs);
         end
 
         function [z] = z_range_2d(this, x, agent1, agent2)
@@ -452,16 +472,78 @@ classdef agent < objectDefinition & agent_tools
             z = sqrt((set_1*x - set_2*x)'*(set_1*x - set_2*x));
         end
         
-        function [F] = F_2d(this, x, agent1, agent2)
-            n = 2;
-            
-            F = eye(n);
+        function [F] = F(this, dt, x, agent1)
+            F = eye(this.dim_state);
+            block = dt * eye(6);
+            F(1:6,7:12) = block;
         end
         
-        function [F] = F_unicycle_2d(this, x, agent1, agent2)
-            n = 2;
+        function [F] = F_unicycle_2d(this, dt, x, agent1)
+            agent1_row_min = this.dim_state*(agent1 - 1) + 1;
+            agent1_row_max = agent1_row_min + this.dim_state - 1;
+
+            x1 = x(agent1_row_min:agent1_row_max);
             
-            F = eye(n);
+            F = eye(this.dim_state);
+            w = x1(10);
+            
+            if w == 0
+                F(1,7) = dt;
+                F(1,8) = 0;
+                F(2,7) = 0;
+                F(2,8) = dt;
+                
+                F(7,7) = 1;
+                F(7,8) = 0;
+                F(8,7) = 0;
+                F(8,8) = 1;
+            else
+                F(1,7) = sin(w*dt) / w;
+                F(1,8) = -(1 - cos(w*dt)) / w;
+                F(2,7) = (1 - cos(w*dt)) / w;
+                F(2,8) = sin(w*dt) / w;
+                
+                F(7,7) = cos(w*dt);
+                F(7,8) = -sin(w*dt);
+                F(8,7) = sin(w*dt);
+                F(8,8) = cos(w*dt);
+            end
+            
+            block = dt * eye(4);
+            F(3:6,9:12) = block;
+        end
+        
+        function [Q] = Q_distance(this, dt, x, agent1)
+            i_low = this.dim_state*(agent1 - 1) + 1;
+            i_high = this.dim_state*(agent1 - 1) + this.dim_state;
+
+            Q_pos = (dt * (norm(x(i_low+6:i_low+8)) + 0.5) * 0.05)^2;
+            Q_theta = (dt * (norm(x(i_low+9:i_low+11)) + 0.5) * 0.05)^2;
+            Q = 1 * eye(12);
+            Q(7:9,7:9) = 0.001 * eye(3);
+            Q(10:12,10:12) = 0.001 * eye(3);
+            if Q_pos > 0
+                Q(1:3,1:3) = Q_pos*eye(3);
+            end
+            if Q_theta > 0
+                Q(4:6,4:6) = Q_theta*eye(3);
+            end
+        end
+        
+        function [Q] = Q_bangu(this, dt, x, agent1)
+            sv = 0.5;
+            b1 = dt^4/4 * eye(6);
+            b2 = dt^3/2 * eye(6);
+            b3 = dt^2 * eye(6);
+            
+            Q = zeros(this.dim_state);
+            
+            Q(1:6,1:6) = b1;
+            Q(1:6,7:12) = b2;
+            Q(7:12,1:6) = b2;
+            Q(7:12,7:12) = b3;
+            
+            Q = Q * sv^2;
         end
     end
     

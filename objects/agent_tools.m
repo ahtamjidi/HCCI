@@ -38,17 +38,18 @@ classdef agent_tools < objectDefinition
             % [ 3 5 9 ] - Waypoint priorities.
             
             % TARGET WAYPOINT IS EMPTY -> POPULATE WITH NEW WAYPOINTS
-            if isempty(this.targetWaypoint)
+%             if isempty(this.targetWaypoint)
                 % NO WAYPOINTS HAVE BEEN SELECTED
-                if isempty(this.achievedWaypoints)
-                    [~,maxPriorityIndex] = max(waypointMatrix(3,:));       % Index of maximum priority value in waypoint matrix
-                    waypointSetIndex = waypointMatrix(1,maxPriorityIndex); % Gets the associated waypoint set index of the highest priority
-                    this.targetWaypoint = waypointSet(waypointSetIndex);    % Update with the highest priority waypoint
-                else
+%                 if isempty(this.achievedWaypoints)
+%                     [~,maxPriorityIndex] = max(waypointMatrix(3,:));       % Index of maximum priority value in waypoint matrix
+%                     waypointSetIndex = waypointMatrix(1,maxPriorityIndex); % Gets the associated waypoint set index of the highest priority
+%                     this.targetWaypoint = waypointSet(waypointSetIndex);    % Update with the highest priority waypoint
+%                 else
                     % SELECT HIGHEST PRIORITY, BUT NOT ACHIEVED
                     invalidWaypointIDs = this.achievedWaypoints;            % Get the achieved waypoint IDs
                     availableWaypointIDs = waypointMatrix(2,:);            % Get those visable IDs
-                    validWaypoints = availableWaypointIDs ~= invalidWaypointIDs;   % Get those visible IDs that are valid
+                    validWaypoints = setdiff(availableWaypointIDs, invalidWaypointIDs);
+                    %validWaypoints = availableWaypointIDs ~= invalidWaypointIDs;   % Get those visible IDs that are valid
                     % IF NO FURTHER VALID IDs
                     if ~any(validWaypoints)
                         this.targetWaypoint = [];
@@ -58,13 +59,23 @@ classdef agent_tools < objectDefinition
                     end
                     
                     % SELECT REMAINING WAYPOINTS
-                    validWaypoints = waypointMatrix(:,validWaypoints); % Get waypoinSet location, IDs and priority of valid waypoints
+                    if numel(validWaypoints) > 1
+                        index = [];
+                        for i = 1:numel(validWaypoints)
+                            arr = waypointMatrix(2,:);
+                            val = validWaypoints(i);
+                            index = [index, find(waypointMatrix(2,:) == validWaypoints(i))];
+                        end
+                    else
+                        index = find(waypointMatrix(2,:) == validWaypoints);
+                    end
+                    validWaypoints = waypointMatrix(:,index); % Get waypoinSet location, IDs and priority of valid waypoints
                     % SELECT WAYPOINT OF NEXT HIGHEST PRIORITY
                     [~,maxValidIndex ] = max(validWaypoints(3,:));       % Get the index of max priority waypoint
                     waypointSetIndex = validWaypoints(1,maxValidIndex);  % Get the location of the target waypoint in the waypoint set
                     this.targetWaypoint = waypointSet(waypointSetIndex);  % Select waypoint object
-                end
-            end
+%                 end
+%             end
             
             % EVALUATE CURRENT TARGET WAYPOINT ////////////////////////////
             % CHECK THE TOLERANCES ON THE CURRENT TARGET WAYPOINT
@@ -293,6 +304,7 @@ classdef agent_tools < objectDefinition
             GLOBAL.position = [0;0;0];          % Global Cartesian position
             GLOBAL.velocity = [0;0;0];          % Global Cartesian velocity
             GLOBAL.quaternion = [1;0;0;0];      % Global quaternion pose
+            GLOBAL.X = zeros(12,1);             % Global 12D state
             GLOBAL.idleStatus = false;          % Object idle logical
             GLOBAL.is3D = true;                 % Object operates in 3D logical
             GLOBAL.priorState = [];

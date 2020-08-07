@@ -131,13 +131,13 @@ OMAS_finish = toc(OMAS_start);
 fprintf('[%s]\tOperation lasted %.2fs.\n',META.phase,OMAS_finish);
 
 %% ///////////// ONCE COMPLETE - RUN EXTERNAL ANALYSIS ////////////////////
-try
-    fprintf('[%s]\tMoving to post-simulation analysis...\n[%s]\n',META.phase,META.phase);
+% try
+%     fprintf('[%s]\tMoving to post-simulation analysis...\n[%s]\n',META.phase,META.phase);
     [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA);                  % Jump to external analysis program
-catch analysisError
-    warning('[ERROR] A problem occurred interpreting the output data');
-    rethrow(analysisError);
-end
+% catch analysisError
+%     warning('[ERROR] A problem occurred interpreting the output data');
+%     rethrow(analysisError);
+% end
 % DELETE THE SYSTEM TEMPORARY FILE
 delete([META.outputPath,META.systemFile]);
 
@@ -248,6 +248,8 @@ for entity = 1:SIM.totalObjects
                           'detectionRadius',objectGLOBAL.detectionRadius,...    % The simulations detection horizon for the aircraft
                                'idleStatus',objectGLOBAL.idleStatus,...         % Agent completed Task Flag
                               'globalState',[objectGLOBAL.position;objectGLOBAL.velocity;objectGLOBAL.quaternion],...
+                                        'X',[objectGLOBAL.X],...                % Current Global state [x y z phi theta psi dx dy dz dphi dtheta dpsi]
+                                   'eulZYX',objectGLOBAL.R,...                  % Current Global euler angles
                                         'R',objectGLOBAL.R,...                  % Current Global-Body rotation matrix
                         'relativePositions',zeros(SIM.totalObjects,3),...       % Relative distances between objects [dx;dy;dz]*objectCount
                              'objectStatus',false(SIM.totalObjects,(numel(eventEnums)-1)/2));
